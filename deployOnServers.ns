@@ -1,3 +1,8 @@
+/**
+ * @author Ragger Jonkers <ragger@xs4all.nl>
+ */
+
+/** @param {NS} ns **/
 export async function main(ns) {
 
 	if (!ns.args.length || ns.args.length < 2) {
@@ -12,15 +17,16 @@ export async function main(ns) {
 
 	let killRunningScripts = ns.args[0]; // allow update during running
 	const script = ns.args[1];
-	const scriptCost = await ns.getScriptRam(script);
+	const scriptCost = ns.getScriptRam(script);
 	const scriptArgs = ns.args.slice(2).length ? ns.args.slice(2) : "";
 	
 	
 	const programs = ["BruteSSH.exe", "FTPCrack.exe", "relaySMTP.exe", "HTTPWorm.exe", "SQLInject.exe"];
 	const programFunctions = [ns.brutessh, ns.ftpcrack, ns.relaysmtp, ns.httpworm, ns.sqlinject];
 	let programsOwned = programs.filter(program => ns.fileExists(program)).length; // allow update during running
-	let visitedServers = new Set(["home"]); // allow update during running
-	let hackingLevel = await ns.getHackingLevel(); // allow update during running
+	let hackingLevel = ns.getHackingLevel(); // allow update during running
+	let visitedServers = new Set(["home"]); // allow reset during running
+	let scriptsDeployed = 0; // allow reset during running
 	
 	// GO
 	await deploy();
@@ -29,12 +35,10 @@ export async function main(ns) {
 	async function deploy() {
 
 		let roundsDone = 0;
-		let scriptsDeployed = 0;
-
 		while (true) {
 
 			// Start recursion for this round
-			const adjacentServers = await ns.scan("home");
+			const adjacentServers = ns.scan("home");
 			await visitServers(adjacentServers);
 			roundsDone += 1;
 			ns.print(`Finished round ${roundsDone}. Deployed script on ${scriptsDeployed} servers this round. \n`);
@@ -43,7 +47,7 @@ export async function main(ns) {
 			visitedServers = new Set(["home"]);
 			killRunningScripts = false; // only kill scripts first round, if opted
 			scriptsDeployed = 0;
-			hackingLevel = await ns.getHackingLevel();
+			hackingLevel = ns.getHackingLevel();
 			programsOwned = programs.filter(program => ns.fileExists(program)).length;
 
 			// Be patient
@@ -67,9 +71,9 @@ export async function main(ns) {
 	async function visitServer(server) {
 
 		// Get server info and requirements
-		const requiredLevel = await ns.getServerRequiredHackingLevel(server);
+		const requiredLevel = ns.getServerRequiredHackingLevel(server);
 		const hasRequiredLevel = hackingLevel >= requiredLevel;
-		const requiredPortOpeners = await ns.getServerNumPortsRequired(server);
+		const requiredPortOpeners = ns.getServerNumPortsRequired(server);
 		const hasEnoughPortOpeners = programsOwned >= requiredPortOpeners;
 		let deployed = false;
 
@@ -78,18 +82,18 @@ export async function main(ns) {
 			if (!ns.hasRootAccess(server)) {
 				ns.print(`Breaking  ports... \n`);
 				await breakPorts(server);
-				await ns.nuke(server);
+				ns.nuke(server);
 			}
 
 			if (killRunningScripts) {
 				ns.print(`Breaking  ports... \n`);
-				await ns.killall(server);
+				ns.killall(server);
 				await ns.sleep(500);
 			}
 
 			// Calculate usable threads
-			const serverRamUsed = await ns.getServerUsedRam(server);
-			const serverRamMax = await ns.getServerMaxRam(server);
+			const serverRamUsed = ns.getServerUsedRam(server);
+			const serverRamMax = ns.getServerMaxRam(server);
 			const serverRamAvailable = serverRamMax - serverRamUsed;
 			const threads = Math.floor(serverRamAvailable / scriptCost);
 
@@ -98,7 +102,7 @@ export async function main(ns) {
 
 			// Execute script on the target server
 			if (threads > 0) {
-				await ns.exec(script, server, threads, ...scriptArgs);
+				ns.exec(script, server, threads, ...scriptArgs);
 				deployed = true;
 				const message = `Script (${scriptCost} GB RAM) deployed on ${threads} threads on ${server}. \n`;
 				ns.print(message);
@@ -123,7 +127,7 @@ export async function main(ns) {
 		if (!visitedServers.has(nextServer)) {
 			const deployment = await visitServer(nextServer);
 			if (deployment) scriptsDeployed += 1;
-			const adjacentServers = await ns.scan(nextServer);
+			const adjacentServers = ns.scan(nextServer);
 
 			// Go deeper into the recursion
 			await visitServers(adjacentServers);
