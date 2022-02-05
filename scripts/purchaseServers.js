@@ -39,10 +39,10 @@ export async function main(ns) {
 
 		// If we can afford an upgrade, replace servers
 		if(ram === maxSize) {
-			ns.tprint(`Servers already on max size (${currentSize}GB).`);
+			ns.tprint(`Servers upgraded to max size (${currentSize}GB).`);
 			continuePurchasing = false;
 		}
-		else {
+		else if (ram > currentSize) {
 			ns.tprint(`Upgrading to ${ram}GB RAM servers.`)
 			for (let i = 0; i < maxServers; i++) {
 				const serverName = `${serverNamePrefix}-${i}`;
