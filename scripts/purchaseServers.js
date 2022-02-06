@@ -42,7 +42,7 @@ export async function main(ns) {
 			ns.tprint(`Servers upgraded to max size (${currentSize}GB).`);
 			continuePurchasing = false;
 		}
-		else if (ram > currentSize) {
+		else if (ram > currentSize && ram > 1) { {
 			ns.tprint(`Upgrading to ${ram}GB RAM servers.`)
 			for (let i = 0; i < maxServers; i++) {
 				const serverName = `${serverNamePrefix}-${i}`;
