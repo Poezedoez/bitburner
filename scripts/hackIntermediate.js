@@ -43,8 +43,6 @@
                  const moneyThreshold = ns.getServerMaxMoney(target) * thresholds.money;
                  const securityThreshold = ns.getServerMinSecurityLevel(target) + thresholds.security;
                  let action;
- 
-                 console.log(moneyThreshold, securityThreshold);
                  if (ns.getServerMoneyAvailable(target) < moneyThreshold) {
                      action = HackAction.Grow;
                  }
