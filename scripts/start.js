@@ -26,6 +26,10 @@ export async function main(ns) {
 	ns.exec("/scripts/purchaseServers.js", host, 1, serverNamePrefix);
 	await ns.sleep(1000);
 
+	// Start the stock market bot
+	ns.exec("/scripts/stockBot.js", host);
+	await ns.sleep(1000);
+
 	// Launch hacking assistant for copying files and tracking hosts / targets
 	ns.exec("/scripts/assistHacking.js", host);
 	await ns.sleep(1000);

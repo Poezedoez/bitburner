@@ -8,6 +8,8 @@
  * [WORK IN PROGRESS]
  */
 
+ import { formatMoney } from 'lib/general.js';
+
  class StockTrader {
 
 	constructor(
@@ -34,6 +36,18 @@
 		this._playerCapital = capital;
 	}
 
+	get stockSymbols() {
+		return this._stockSymbols;
+	}
+
+	get portfolio() {
+		return this._portfolio;
+	}
+
+	get playerCapital() {
+		return this._playerCapital;
+	}
+
 	stockOwned(stock) {
 		return Boolean(this._portfolio[stock]);
 	}
@@ -51,18 +65,18 @@
 	}
 
 	shouldSell(stock) {
-		const negativeForecast = ns.stock.getForecast(stock) 
+		const negativeForecast = this._ns.stock.getForecast(stock) 
 			< this._forecastThreshold;
 		const reachedProfitMargin = this._ns.stock.getAskPrice(stock) 
-			>= this._portfolio[stock].value*profitMargin;
+			>= this._portfolio[stock].value*this._profitMargin;
 		return reachedProfitMargin && negativeForecast;
 	}
 
 	buyStock(stock) {
 		const stockPrice = this._ns.stock.getAskPrice(stock);
-		const numShares = getNumShares(stockPrice, stock); 
-		this._ns.stock.buy(stock, shares);
-		this._ns.print(`BUY ${numShares} ${stock} @ ${Math.round(stockPrice)}`);
+		const numShares = this.getNumShares(stockPrice, stock); 
+		this._ns.stock.buy(stock, numShares);
+		this._ns.print(`BUY ${numShares} ${stock} @ ${formatMoney(Math.round(stockPrice))}`);
 		this._portfolio[stock] = {value: stockPrice, shares: numShares};
 		const investedMoney = stockPrice * numShares;
 
@@ -71,19 +85,20 @@
 
 	sellStock(stock) {
 		const [sharesLong, ...rest] = this._ns.stock.getPosition(stock);
-		this._ns.print(`SELL ${portfolio[stock].shares} ${stock} @ ${portfolio[stock].value}`);
+		const { shares, value } = this._portfolio[stock];
+		this._ns.print(`SELL ${shares} ${stock} @ ${formatMoney(value)}`);
 		this._ns.stock.sell(stock, sharesLong);
 		delete this._portfolio[stock];
 	}
 
 	// Calculate how many shares to buy
 	getNumShares(stockPrice, stock) { 
-		
-		const maxSpend = playerMoney * this._allowance;
-		const calcShares = maxSpend/stockPrice;
+		const maxSpend = this._playerCapital * this._allowance;
+		const calcShares = stockPrice ? maxSpend/stockPrice : 0;
 		const maxShares = this._ns.stock.getMaxShares(stock);
+		const numShares = calcShares > maxShares ? maxShares : calcShares;
 
-		return calcShares > maxShares ? maxShares : calcShares;
+		return numShares
 	}
 
 	// Fill portfolio with owned stocks, and update player capital
@@ -91,8 +106,8 @@
 		for(const stock of this._stockSymbols){
 			let [sharesLong, averagePriceLong, sharesShort, avgeragePriceShort] = this._ns.stock.getPosition(stock);
 			if(sharesLong > 0){
-				portfolio[stock] = {value: averageLongPrice, shares: sharesLong};
-				this._ns.print(`OWNED ${sharesLong} ${stock} @ ${averagePriceLong}`);
+				this._portfolio[stock] = {value: averagePriceLong, shares: sharesLong};
+				this._ns.print(`OWNED ${sharesLong} ${stock} @ ${formatMoney(averagePriceLong)}`);
 				this.playerCapital += sharesLong * averagePriceLong; 
 			};
 		};
@@ -105,7 +120,6 @@
 export async function main(ns) {
 
 	ns.disableLog('ALL');
-	ns.print("Starting stockbot...");
 
 	// PARAMETERS
 	const volatilityThreshold = 0.05; // Buy below this percentage
@@ -124,12 +138,14 @@ export async function main(ns) {
 	);
 	stockTrader.initPortfolio();
 
+	ns.tprint(`Init player capital is ${formatMoney(stockTrader.playerCapital)}. \n Starting stockbot... `);
+
 	let cycle = 0;
  	while(true){
 
 		// Check every stock
 		let portfolioValue = 0;
- 		for(const stock of stockSymbols){ 
+ 		for(const stock of stockTrader.stockSymbols){ 
 
 			// Check if owned
  			if (stockTrader.stockOwned(stock)) { 
@@ -146,11 +162,12 @@ export async function main(ns) {
 
 			// If not owned, buy if we should
  			else if (stockTrader.shouldBuy(stock)){
- 				const investedMoney = buyStock(stock);
+ 				const investedMoney = stockTrader.buyStock(stock);
 				portfolioValue += investedMoney;
  			}
 
  		}
+
 
 		// Update player capital in order to spend accordingly
 		const capital = ns.getServerMoneyAvailable('home') + portfolioValue;
@@ -158,8 +175,9 @@ export async function main(ns) {
 
  		cycle++;
  		if (cycle % 10 === 0 && cycle > 0){ 
-			 ns.print(`Completed ${cycles} cycles.`) 
+			 ns.print(`[${cycle} cycles] Current player capital is ${formatMoney(capital)}`) 
 		};
+
 
  		await ns.sleep(6000);
 
